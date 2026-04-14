@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MAC TRACK Mobile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useState } = React;
+
+    const DEFAULT_FOODS = [
+      { name: "Large Egg (1)", protein: 6, carbs: 1, fat: 5, calories: 70 },
+      { name: "Egg Whites (1 cup)", protein: 26, carbs: 2, fat: 0, calories: 120 },
+      { name: "Chicken Breast (cooked, 4 oz)", protein: 35, carbs: 0, fat: 4, calories: 185 },
+      { name: "Ground Turkey 93/7 (cooked, 8 oz)", protein: 48, carbs: 0, fat: 16, calories: 344 },
+      { name: "Whole Milk Greek Yogurt (1/3 cup)", protein: 6, carbs: 3, fat: 4, calories: 70 },
+      { name: "Whole Milk (1 cup)", protein: 8, carbs: 12, fat: 8, calories: 150 },
+      { name: "OWYN Pro Elite (1 bottle)", protein: 32, carbs: 4, fat: 4, calories: 200 },
+      { name: "Nature's Own White Wheat Bread (1 slice)", protein: 3, carbs: 13, fat: 1, calories: 70 },
+      { name: "Banana (medium)", protein: 1, carbs: 27, fat: 0, calories: 105 },
+      { name: "Member's Mark Chocolate Chip Cookie (1)", protein: 2, carbs: 30, fat: 11, calories: 220 },
+      { name: "Papa John's Philly Cheesesteak Pizza (1 slice)", protein: 14, carbs: 35, fat: 14, calories: 310 },
+      { name: "Papa John's Tuscan 6 Cheese Cheesestick (1 piece)", protein: 4, carbs: 12, fat: 5, calories: 110 },
+      { name: "Dr Pepper (12 oz)", protein: 0, carbs: 40, fat: 0, calories: 150 },
+      { name: "Burrito Size Tortilla (1)", protein: 8, carbs: 50, fat: 9, calories: 300 },
+      { name: "Keto Burrito Tortilla (1)", protein: 6, carbs: 18, fat: 3, calories: 80 },
+      { name: "Pimento Cheese (2 tbsp)", protein: 3, carbs: 2, fat: 10, calories: 100 },
+      { name: "Hummus (2 tbsp)", protein: 2, carbs: 5, fat: 6, calories: 70 },
+      { name: "Pita Crackers (1 piece)", protein: 0.5, carbs: 5, fat: 1, calories: 25 },
+      { name: "Chocolate Cupcake w/ White Frosting (1)", protein: 3, carbs: 42, fat: 16, calories: 300 },
+      { name: "Pound Cake (1 slice)", protein: 5, carbs: 42, fat: 16, calories: 320 },
+    ];
+
+    function getTodayLocal() {
+      const now = new Date();
+      const tzOffsetMs = now.getTimezoneOffset() * 60000;
+      return new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+    }
+
+    function loadJson(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveJson(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function App() {
+      const [date, setDate] = useState(getTodayLocal());
+      const [age, setAge] = useState(() => Number(localStorage.getItem('mt-age')) || 35);
+      const [weight, setWeight] = useState(() => Number(localStorage.getItem('mt-weight')) || 180);
+      const [height, setHeight] = useState(() => Number(localStorage.getItem('mt-height')) || 70);
+      const [sex, setSex] = useState(() => localStorage.getItem('mt-sex') || 'male');
+      const [maintenanceCalories, setMaintenanceCalories] = useState(() => Number(localStorage.getItem('mt-maintenance')) || 2600);
+      const [stepsByDate, setStepsByDate] = useState(() => loadJson('mt-stepsByDate', {}));
+      const [foods, setFoods] = useState(() => {
+        const saved = loadJson('mt-foods', []);
+        const custom = saved.filter((f) => !DEFAULT_FOODS.some((d) => d.name === f.name));
+        return [...custom, ...DEFAULT_FOODS];
+      });
+      const [selectedFood, setSelectedFood] = useState(DEFAULT_FOODS[0].name);
+      const [foodSearch, setFoodSearch] = useState('');
+      const [servings, setServings] = useState(1);
+      const [mealLog, setMealLog] = useState(() => loadJson('mt-mealLog', []));
+      const [custom, setCustom] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' });
+      const [dailyOpen, setDailyOpen] = useState(true);
+
+      useEffect(() => { localStorage.setItem('mt-age', String(age)); }, [age]);
+      useEffect(() => { localStorage.setItem('mt-weight', String(weight)); }, [weight]);
+      useEffect(() => { localStorage.setItem('mt-height', String(height)); }, [height]);
+      useEffect(() => { localStorage.setItem('mt-sex', sex); }, [sex]);
+      useEffect(() => { localStorage.setItem('mt-maintenance', String(maintenanceCalories)); }, [maintenanceCalories]);
+      useEffect(() => { saveJson('mt-stepsByDate', stepsByDate); }, [stepsByDate]);
+      useEffect(() => { saveJson('mt-foods', foods); }, [foods]);
+      useEffect(() => { saveJson('mt-mealLog', mealLog); }, [mealLog]);
+
+      const steps = Number(stepsByDate[date] || 0);
+
+      const filteredFoods = useMemo(() => {
+        const q = foodSearch.trim().toLowerCase();
+        return q ? foods.filter((f) => f.name.toLowerCase().includes(q)) : foods;
+      }, [foods, foodSearch]);
+
+      useEffect(() => {
+        if (filteredFoods.length && !filteredFoods.some((f) => f.name === selectedFood)) {
+          setSelectedFood(filteredFoods[0].name);
+        }
+      }, [filteredFoods, selectedFood]);
+
+      function calculateCaloriesOut(stepCount) {
+        if (!stepCount || !weight || !height || !age) return 0;
+        const strideLengthInches = sex === 'male' ? height * 0.415 : height * 0.413;
+        const distanceMiles = (stepCount * strideLengthInches) / 63360;
+        const speedMph = 3;
+        const hoursWalked = distanceMiles / speedMph;
+        let met = 3.3;
+        if (speedMph >= 3.5) met = 4.3;
+        if (speedMph >= 4) met = 5;
+        const weightKg = weight * 0.453592;
+        const gross = met * weightKg * hoursWalked;
+        const ageAdj = age >= 60 ? 0.97 : age <= 25 ? 1.02 : 1;
+        return Math.round(gross * ageAdj);
+      }
+
+      const caloriesOut = useMemo(() => calculateCaloriesOut(steps), [steps, age, weight, height, sex]);
+      const todaysMeals = useMemo(() => mealLog.filter((m) => m.date === date), [mealLog, date]);
+      const totals = useMemo(() => todaysMeals.reduce((acc, m) => ({
+        calories: acc.calories + Number(m.calories || 0),
+        protein: acc.protein + Number(m.protein || 0),
+        carbs: acc.carbs + Number(m.carbs || 0),
+        fat: acc.fat + Number(m.fat || 0),
+      }), { calories: 0, protein: 0, carbs: 0, fat: 0 }), [todaysMeals]);
+
+      const totalBurn = maintenanceCalories + caloriesOut;
+      const netCalories = Math.round(totals.calories - caloriesOut);
+      const deficit = Math.round(totalBurn - totals.calories);
+      const status = deficit > 0 ? 'In a deficit' : deficit < 0 ? 'Above maintenance' : 'At maintenance';
+
+      function addFood(food, amount = 1) {
+        const item = {
+          id: crypto.randomUUID(),
+          date,
+          name: amount !== 1 ? `${food.name} x ${amount}` : food.name,
+          calories: Number((Number(food.calories) * amount).toFixed(2)),
+          protein: Number((Number(food.protein) * amount).toFixed(2)),
+          carbs: Number((Number(food.carbs) * amount).toFixed(2)),
+          fat: Number((Number(food.fat) * amount).toFixed(2)),
+        };
+        setMealLog((prev) => [...prev, item]);
+      }
+
+      function addSelectedFood() {
+        const found = foods.find((f) => f.name === selectedFood);
+        if (found) addFood(found, servings);
+      }
+
+      function addManual(saveToFoods) {
+        if (!custom.name.trim()) return;
+        const entry = {
+          name: custom.name.trim(),
+          calories: Number(custom.calories || 0),
+          protein: Number(custom.protein || 0),
+          carbs: Number(custom.carbs || 0),
+          fat: Number(custom.fat || 0),
+        };
+        if (saveToFoods) {
+          setFoods((prev) => prev.some((f) => f.name.toLowerCase() === entry.name.toLowerCase()) ? prev : [entry, ...prev]);
+        }
+        addFood(entry, 1);
+        setCustom({ name: '', calories: '', protein: '', carbs: '', fat: '' });
+      }
+
+      function removeMeal(id) {
+        setMealLog((prev) => prev.filter((m) => m.id !== id));
+      }
+
+      function saveTodaysMealsToFoods() {
+        const existing = new Set(foods.map((f) => f.name.trim().toLowerCase()));
+        const unique = todaysMeals
+          .filter((m) => !existing.has(m.name.trim().toLowerCase()))
+          .map(({ name, calories, protein, carbs, fat }) => ({ name, calories, protein, carbs, fat }));
+        if (unique.length) setFoods((prev) => [...unique, ...prev]);
+      }
+
+      const card = 'rounded-2xl bg-white p-4 shadow';
+      const input = 'w-full rounded-xl border p-3 text-sm';
+
+      return (
+        <div className="mx-auto max-w-md space-y-4 p-4">
+          <div className={card}>
+            <h1 className="text-2xl font-bold">MAC TRACK Mobile</h1>
+            <p className="mt-1 text-sm text-gray-600">Weekend-safe version. Fast food logging, calories in, calories out, and deficit status.</p>
+          </div>
+
+          <div className={card}>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Date</label>
+                <input className={input} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Steps</label>
+                <input className={input} type="number" value={steps} onChange={(e) => setStepsByDate((prev) => ({ ...prev, [date]: Number(e.target.value) || 0 }))} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Age</label>
+                <input className={input} type="number" value={age} onChange={(e) => setAge(Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Weight (lb)</label>
+                <input className={input} type="number" value={weight} onChange={(e) => setWeight(Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Height (in)</label>
+                <input className={input} type="number" value={height} onChange={(e) => setHeight(Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Sex</label>
+                <select className={input} value={sex} onChange={(e) => setSex(e.target.value)}>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className={card}><div className="text-xs text-gray-500">Calories In</div><div className="mt-1 text-2xl font-bold">{Math.round(totals.calories)}</div></div>
+            <div className={card}><div className="text-xs text-gray-500">Calories Burned From Steps</div><div className="mt-1 text-2xl font-bold">{caloriesOut}</div></div>
+            <div className={card}><div className="text-xs text-gray-500">Net Calories</div><div className="mt-1 text-2xl font-bold">{netCalories}</div></div>
+            <div className={card}><div className="text-xs text-gray-500">Status</div><div className="mt-1 text-lg font-bold">{status}</div><div className="text-sm text-gray-600">{deficit > 0 ? `-${deficit}` : deficit < 0 ? `+${Math.abs(deficit)}` : '0'} calories</div></div>
+          </div>
+
+          <div className={card}>
+            <h2 className="text-lg font-bold">Macros</h2>
+            <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+              <div><div className="text-xs text-gray-500">Protein</div><div className="text-xl font-bold">{Math.round(totals.protein)}g</div></div>
+              <div><div className="text-xs text-gray-500">Carbs</div><div className="text-xl font-bold">{Math.round(totals.carbs)}g</div></div>
+              <div><div className="text-xs text-gray-500">Fat</div><div className="text-xl font-bold">{Math.round(totals.fat)}g</div></div>
+            </div>
+          </div>
+
+          <div className={card}>
+            <h2 className="text-lg font-bold">Common Foods</h2>
+            <input className={`${input} mt-3`} placeholder="Search foods..." value={foodSearch} onChange={(e) => setFoodSearch(e.target.value)} />
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Select Food</label>
+              <select className={input} value={selectedFood} onChange={(e) => setSelectedFood(e.target.value)}>
+                {filteredFoods.map((f) => <option key={f.name} value={f.name}>{f.name}</option>)}
+              </select>
+            </div>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Servings</label>
+              <input className={input} type="number" min="0.25" step="0.25" value={servings} onChange={(e) => setServings(Number(e.target.value) || 1)} />
+            </div>
+            <button className="mt-3 w-full rounded-xl bg-black px-4 py-3 text-white" onClick={addSelectedFood}>Add Selected Food</button>
+          </div>
+
+          <div className={card}>
+            <h2 className="text-lg font-bold">Manual Entry</h2>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <input className={input} placeholder="Food Name" value={custom.name} onChange={(e) => setCustom((c) => ({ ...c, name: e.target.value }))} />
+              <input className={input} placeholder="Calories" type="number" value={custom.calories} onChange={(e) => setCustom((c) => ({ ...c, calories: e.target.value }))} />
+              <input className={input} placeholder="Protein" type="number" value={custom.protein} onChange={(e) => setCustom((c) => ({ ...c, protein: e.target.value }))} />
+              <input className={input} placeholder="Carbs" type="number" value={custom.carbs} onChange={(e) => setCustom((c) => ({ ...c, carbs: e.target.value }))} />
+              <input className={input} placeholder="Fat" type="number" value={custom.fat} onChange={(e) => setCustom((c) => ({ ...c, fat: e.target.value }))} />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button className="flex-1 rounded-xl border px-4 py-3" onClick={() => addManual(false)}>Add to Day Only</button>
+              <button className="flex-1 rounded-xl bg-black px-4 py-3 text-white" onClick={() => addManual(true)}>Save Food + Add</button>
+            </div>
+          </div>
+
+          <div className={card}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Daily Tracker</h2>
+              <button className="rounded-xl border px-3 py-2 text-sm" onClick={() => setDailyOpen((v) => !v)}>{dailyOpen ? 'Hide' : 'Show'}</button>
+            </div>
+            <button className="mb-3 w-full rounded-xl bg-black px-4 py-3 text-white" onClick={saveTodaysMealsToFoods}>Save All to Common Foods</button>
+            {dailyOpen && (
+              <div className="space-y-2">
+                {!todaysMeals.length && <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">No foods logged yet for this day.</div>}
+                {todaysMeals.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                    <div>
+                      <div className="font-medium">{m.name}</div>
+                      <div className="text-xs text-gray-500">{m.calories} cal • P {m.protein} • C {m.carbs} • F {m.fat}</div>
+                    </div>
+                    <button className="rounded-lg border px-3 py-2 text-sm" onClick={() => removeMeal(m.id)}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
